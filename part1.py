@@ -297,6 +297,8 @@ def main():
 
   # encrypt the modified plaintext
   ciphertext_flipped, round_states_flipped = AES.encryptBlock(plaintext_flipped, trace=True)
+  print()
+  print("Ciphertext after flipping bit: " + arr_to_bin(ciphertext_flipped))
   print_hex_str(round_states_flipped)
 
   # count bit differences
