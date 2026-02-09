@@ -334,9 +334,8 @@ class AES:
 # print("K1: " + str(round1Key))
 # print("K2: " + str(round2Key))
 
-enc = AES.encryptBlock(plaintext)
-enc_str = arr_to_bin(enc)
-print("Ciphertext: " + enc_str)
+#enc = AES.encryptBlock(plaintext)
+#enc_str = arr_to_bin(enc)
 
 
 def main():
