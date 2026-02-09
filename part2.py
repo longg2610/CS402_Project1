@@ -2,11 +2,20 @@ from part1 import AES
 import math
 import random
 
-mode = 0        # 0 for ECB, 1 for CTR
+mode = 1        # 0 for ECB, 1 for CTR
 
 def text_to_bits(text: str, encoding="utf-8") -> str:
          data = text.encode(encoding)
          return ''.join(f'{byte:08b}' for byte in data)
+
+# convert array representation to a binary string
+def arr_to_bin(arr):
+  bin_str = ""
+  for col in range(4):
+    for row in range(4):
+        bin_str += format(arr[row][col], '08b')
+  assert len(bin_str) == 128
+  return bin_str
 
 def ECB(plaintext):
     # split the plaintext into 128-bit blocks, padded if needed
@@ -72,5 +81,8 @@ def encrypt(mode, msg):
         return CTR(text_to_bits(msg))
 
 
+print("The message All Denison students should take CS402! encrypted is")
 print(encrypt(mode, "All Denison students should take CS402!"))
 
+print("ECB:")
+print(ECB(text_to_bits("All Denison students should take CS402!")))

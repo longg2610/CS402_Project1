@@ -1,12 +1,9 @@
 import random
 
 seed = 1962481  # min(D# in your group)
-# seed = 1950775
 random.seed(seed)
 
 key = random.getrandbits(128)
-# key = int("000102030405060708090a0b0c0d0e0f", 16)
-# key = int("2b7e151628aed2a6abf7158809cf4f3c", 16)
 
 def text_to_bits(text: str, encoding="utf-8") -> str:
          data = text.encode(encoding)
@@ -22,20 +19,13 @@ def arr_to_bin(arr):
   return bin_str
 
 DNums = "D01962481D01962564D01966755"
-# DNums = "D01950775D01962465D01968181"
 
 plaintext = text_to_bits(DNums)[:128]
 print("Plaintext: " + str(plaintext))
 
-# plaintext = "00000000000100010010001000110011010001000101010101100110011101111000100010011001101010101011101111001100110111011110111011111111"
-# plaintext = ''.join(f'{int(h, 16):04b}' for h in "6bc1bee22e409f96e93d7e117393172a")
-
 
 class AES:
   
-  #the book actually walks through calculating these, I didn't see that
-  #until after I put them in by hand though. Undecided on whether it'd be better
-  #to do the math or not
   SBox = [[0x63, 0x7C, 0x77, 0x7B, 0xF2, 0x6B, 0x6F, 0xC5, 0x30, 0x01, 0x67, 0x2B, 0xFE, 0xD7, 0xAB, 0x76],
 [0xCA, 0x82, 0xC9, 0x7D, 0xFA, 0x59, 0x47, 0xF0, 0xAD, 0xD4, 0xA2, 0xAF, 0x9C, 0xA4, 0x72, 0xC0],
 [0xB7, 0xFD, 0x93, 0x26, 0x36, 0x3F, 0xF7, 0xCC, 0x34, 0xA5, 0xE5, 0xF1, 0x71, 0xD8, 0x31, 0x15],
@@ -272,32 +262,23 @@ class AES:
     #B is defined on page 181 (6.5), need to figure out how to
     #matrix mult while using XOR as the addition operator
     pass
-  
+
+def main():
+  # driver code: this part just return the ciphertext in bits
+  enc = AES.encryptBlock(plaintext)
+  enc_str = arr_to_bin(enc)
+  print("Ciphertext: " + enc_str)
 
 
-# test key expansion
-# initialKey = AES.keyInit()
-# round1Key = AES.keyExpansion(initialKey, 1)
-# round2Key = AES.keyExpansion(round1Key, 2)
-# print("K0: " + arr_to_bin(initialKey))
-# print("K1: " + str(round1Key))
-# print("K2: " + str(round2Key))
+  # encrypt with tracing
+  ciphertext, round_states = AES.encryptBlock(plaintext, trace=True)
 
-enc = AES.encryptBlock(plaintext)
-enc_str = arr_to_bin(enc)
-print("Ciphertext: " + enc_str)
+  # print state after each round
+  for r, s in enumerate(round_states):
+      print(f"State after round {r}:")
+      # print(arr_to_bin(s))
+      for row in s:
+          print(row)
+      print()
 
-# ciphertext = "01101001110001001110000011011000011010100111101100000100001100001101100011001101101101111000000001110000101101001100010101011010"
-# ciphertext = ''.join(f'{int(h, 16):04b}' for h in "3ad77bb40d7a3660a89ecaf32466ef97")
-# assert ciphertext == enc_str
-
-# encrypt with tracing
-ciphertext, round_states = AES.encryptBlock(plaintext, trace=True)
-
-# print state after each round
-for r, s in enumerate(round_states):
-    print(f"State after round {r}:")
-    print(arr_to_bin(s))
-    # for row in s:
-    #     print(row)
-    print()
+main()
