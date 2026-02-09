@@ -21,7 +21,7 @@ def ECB(plaintext):
     # split the plaintext into 128-bit blocks, padded if needed
     # each block is encrypted independently using AES
     # ciphertext blocks are concatenated in the same order as the plaintext
-    ciphertext = []
+    ciphertext = ''
     block_size = 128  # AES block size
     i = 0
     while i < len(plaintext):
@@ -30,7 +30,7 @@ def ECB(plaintext):
         if len(block) < block_size:
             block = block.ljust(block_size, '0')
         encrypted_block = AES.encryptBlock(block)
-        ciphertext.append(encrypted_block)
+        ciphertext+= arr_to_bin(encrypted_block)
         i += block_size
     return ciphertext
 

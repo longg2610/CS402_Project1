@@ -273,12 +273,42 @@ def main():
   # encrypt with tracing
   ciphertext, round_states = AES.encryptBlock(plaintext, trace=True)
 
-  # print state after each round
-  for r, s in enumerate(round_states):
-      print(f"State after round {r}:")
-      # print(arr_to_bin(s))
-      for row in s:
-          print(row)
-      print()
+
+  # print state after each round in hex
+  def print_hex_str(round_states):
+    for r, s in enumerate(round_states):
+        print(f"State after round {r} (hex):")
+
+        hex_str = ""
+        for col in range(4):
+            for row in range(4):
+                hex_str += f"{s[row][col]:02x}"
+
+        print(hex_str)
+        print()
+
+  print_hex_str(round_states)
+
+  # flip bit 12 (leftmost MSB = 0)
+  plaintext_bits = list(plaintext) 
+  plaintext_bits[12] = '1' if plaintext_bits[12] == '0' else '0'
+  plaintext_flipped = ''.join(plaintext_bits)
+
+  # encrypt the modified plaintext
+  ciphertext_flipped, round_states_flipped = AES.encryptBlock(plaintext_flipped, trace=True)
+  print_hex_str(round_states_flipped)
+
+  # count bit differences
+  for r in range(5):  
+      state_orig = round_states[r]
+      state_new  = round_states_flipped[r]
+
+      diff_bits = 0
+      for i in range(4):
+          for j in range(4):
+              diff_bits += bin(state_orig[i][j] ^ state_new[i][j]).count('1') # see which bits changed
+
+      print(f"Round {r}: {diff_bits} bits differ")
+
 
 main()
