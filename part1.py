@@ -238,6 +238,23 @@ class AES:
     #matrix mult while using XOR as the addition operator
     pass
   
+def ECB(plaintext_bits):
+    # split the plaintext into 128-bit blocks, padded if needed
+    # each block is encrypted independently using AES
+    # ciphertext blocks are concatenated in the same order as the plaintext
+    ciphertext = []
+    block_size = 128  # AES block size
+    i = 0
+    while i < len(plaintext_bits):
+        block = plaintext_bits[i:i + block_size]
+        # pad block with 0s if it's less than 128 bits 
+        if len(block) < block_size:
+            block = block.ljust(block_size, '0')
+        encrypted_block = AES.encryptBlock(block)
+        ciphertext.append(encrypted_block)
+        i += block_size
+    return ciphertext
+
 
 # test key expansion
 initialKey = AES.keyInit()
