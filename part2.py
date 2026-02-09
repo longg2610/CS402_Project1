@@ -42,8 +42,8 @@ def genIV(plaintext_len):
 
   IV = random.getrandbits(128)
   for _ in range(IV_count):
+    IV_list.append(format(IV, '0128b')) 
     IV += 1
-    IV_list.append(text_to_bits(str(IV)))
   return IV_list
 
 def CTR(plaintext_bits):
