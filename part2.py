@@ -17,22 +17,32 @@ def arr_to_bin(arr):
   assert len(bin_str) == 128
   return bin_str
 
-def ECB(plaintext):
+def ECB(plaintext_bits):
     # split the plaintext into 128-bit blocks, padded if needed
     # each block is encrypted independently using AES
     # ciphertext blocks are concatenated in the same order as the plaintext
-    ciphertext = []
-    block_size = 128  # AES block size
+    ciphertext_bits = ""
+    block_size = 128
     i = 0
-    while i < len(plaintext):
-        block = plaintext[i:i + block_size]
-        # pad block with 0s if it's less than 128 bits 
+
+    while i < len(plaintext_bits):
+        block = plaintext_bits[i:i + block_size]
+
+        # pad for AES encryption if needed
+        padded_block = block
         if len(block) < block_size:
-            block = block.ljust(block_size, '0')
-        encrypted_block = AES.encryptBlock(block)
-        ciphertext.append(encrypted_block)
+            padded_block = block.ljust(block_size, '0')
+
+        encrypted_block = AES.encryptBlock(padded_block)
+        encrypted_bits = arr_to_bin(encrypted_block)
+
+        # only append original block length (CTR-style behavior)
+        ciphertext_bits += encrypted_bits[:len(block)]
+
         i += block_size
-    return ciphertext
+
+    assert len(ciphertext_bits) == len(plaintext_bits)
+    return ciphertext_bits
 
 
 # Generate all IVs needed
