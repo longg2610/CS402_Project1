@@ -2,7 +2,7 @@ from part1 import AES
 import math
 import random
 
-mode = 1        # 0 for ECB, 1 for CTR
+mode = 0        # 0 for ECB, 1 for CTR
 
 def text_to_bits(text: str, encoding="utf-8") -> str:
          data = text.encode(encoding)
@@ -92,7 +92,4 @@ def encrypt(mode, msg):
 
 
 print("The message All Denison students should take CS402! encrypted is")
-print(encrypt(mode, "All Denison students should take CS402!"))
-
-print("ECB:")
-print(ECB(text_to_bits("All Denison students should take CS402!")))
+print(encrypt(mode, "All Denison students should take CS402!")[:256])

@@ -58,6 +58,7 @@ class AES:
     first = word.pop(0)
     return word + [first]
     
+  # do S-Box on 4 bytes at once
   def SubWord(word):
     new_word = []
     for i in range (len(word)):
@@ -112,7 +113,7 @@ class AES:
     return input_matrix
   
   A = [[2,3,1,1], [1,2,3,1], [1,1,2,3], [3,1,1,2]]    # const array used in MixColumns
-  def MUL(const, input):
+  def MUL(const, input):      # multiplications for MixColumns
     if const == 1:
       return const * input
     elif const == 2:
