@@ -259,6 +259,53 @@ def ECB(plaintext_bits):
     return ciphertext
 
 
+# Generate all IVs needed
+import math
+def genIV(plaintext_len):
+  IV_count = math.ceil(plaintext_len / 128)
+  IV_list = []
+
+  IV = random.getrandbits(128)
+  for _ in range(IV_count):
+    IV += 1
+    IV_list.append(text_to_bits(str(IV)))
+  return IV_list
+
+def CTR(plaintext_bits):
+    IV_list = genIV(len(plaintext_bits))
+    ciphertext_bits = ""
+    block_size = 128  # AES block size
+    i = 0
+    counter = 0
+    while i < len(plaintext_bits):
+      block = plaintext_bits[i:i + block_size]
+      IV_str = ""
+      encrypted_IV = AES.encryptBlock(IV_list[counter])
+
+      # convert encrypted IV from array representation to bit string so we can do XOR
+      for j in range(4):
+        for k in range(4):
+           IV_str += format(encrypted_IV[j][k], '08b')    # make sure 8 bits are appended each time
+      assert len(IV_str) == block_size
+
+      IV_str = IV_str[0:len(block)]   # chop off last IV bits if block is not 128
+
+      XOR_result = int(IV_str, 2) ^ int(block, 2)   # convert to int to do XOR
+      ciphertext_bits += format(XOR_result, 'b')[-len(block):]   # convert back to string, cut out only the necessary bits
+
+      i += block_size
+      counter += 1
+
+    assert len(plaintext_bits) == len(ciphertext_bits)
+    return ciphertext_bits
+
+
+# Test CTR
+cool_msg = "All Denison students should take CS402!"
+print(CTR(text_to_bits(cool_msg)))
+
+
+
 # test key expansion
 # initialKey = AES.keyInit()
 # round1Key = AES.keyExpansion(initialKey, 1)
