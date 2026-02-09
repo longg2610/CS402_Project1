@@ -66,8 +66,10 @@ class AES:
     return new_word
 
   def keyExpansion(key_matrix, i):
-    lastWord = key_matrix[3]
-    transformedWord = AES.XOR(AES.SubWord(AES.RotWord(lastWord)), AES.Rcon[i].to_bytes(16))
+    lastWord = key_matrix[3].copy()
+    
+    Rcon_arr = [AES.Rcon[i], 0x00, 0x00, 0x00]
+    transformedWord = AES.XOR(AES.SubWord(AES.RotWord(lastWord)), Rcon_arr)
 
     newKey = []
     newKey.append(AES.XOR(transformedWord, key_matrix[0]))
@@ -156,12 +158,12 @@ class AES:
     
     # XOR initial state with initial key (K_0)
     K_0 = AES.keyInit()
-    AES.AddRoundKey(state, K_0)
+    state = AES.AddRoundKey(state, K_0)
 
     prev_key = K_0
 
     #N = 10 (number of rounds) for 16-byte key
-    for i in range(0, 9):
+    for i in range(1, 10):
       for j in range(4):
         state[j] = AES.SubWord(state[j])
       state = AES.ShiftRows(state)
@@ -177,7 +179,7 @@ class AES:
         state[j] = AES.SubWord(state[j])
     state = AES.ShiftRows(state)
 
-    new_key = AES.keyExpansion(prev_key, i)
+    new_key = AES.keyExpansion(prev_key, 10)
     state = AES.AddRoundKey(state, new_key)
     return state
   
@@ -240,7 +242,7 @@ class AES:
 # test key expansion
 initialKey = AES.keyInit()
 round1Key = AES.keyExpansion(initialKey, 1)
-round2Key = AES.keyExpansion(initialKey, 2)
+round2Key = AES.keyExpansion(round1Key, 2)
 print("K0: " + str(initialKey))
 print("K1: " + str(round1Key))
 print("K2: " + str(round2Key))
