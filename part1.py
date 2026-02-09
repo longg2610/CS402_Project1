@@ -301,7 +301,7 @@ def CTR(plaintext_bits):
       IV_str = IV_str[0:len(block)]   # chop off last IV bits if block is not 128
 
       XOR_result = int(IV_str, 2) ^ int(block, 2)   # convert to int to do XOR
-      ciphertext_bits += format(XOR_result, 'b')[-len(block):]   # convert back to string, cut out only the necessary bits
+      ciphertext_bits += format(XOR_result, '0128b')[-len(block):]   # convert back to string, cut out only the necessary bits
 
       i += block_size
       counter += 1
