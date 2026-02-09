@@ -1,6 +1,6 @@
 import random
 
-seed = 123456789  # min(D# in your group)
+seed = 1962481  # min(D# in your group)
 random.seed(seed)
 
 key = random.getrandbits(128)
@@ -9,7 +9,7 @@ def text_to_bits(text: str, encoding="utf-8") -> str:
          data = text.encode(encoding)
          return ''.join(f'{byte:08b}' for byte in data)
 
-DNums = "D01962481D18433789D04678912"
+DNums = "D01962481D01962564D04678912"
 
 plaintext = text_to_bits(DNums)[:128]
 print("Plaintext: " + str(plaintext))
@@ -40,7 +40,7 @@ class AES:
   # ============================================================ KEY EXPANSION =============================================
 
   def keyInit():
-    key_byte_array = list(key.to_bytes(16))
+    key_byte_array = list(key.to_bytes(16, byteorder='big'))
 
     key_matrix = [[0 for __ in range (0, 4)] for _ in range(0, 4)]
     for i in range(16):
@@ -135,7 +135,7 @@ class AES:
     return output
   
 
-  def encryptBlock(plaintext):
+  def encryptBlock(plaintext, trace=False):
     #state = copy of plaintext in byte matrix
     #calculate round keys with keyExpansion()
     #addRoundKey
@@ -159,6 +159,8 @@ class AES:
     state = AES.AddRoundKey(state, K_0)
 
     prev_key = K_0
+    round_states = [ [row.copy() for row in state] ]  # store initial state
+
     #N = 10 (number of rounds) for 16-byte key
     for i in range(1, 10):
       # do SubBytes on the whole 128-bit blovk
@@ -175,15 +177,23 @@ class AES:
       new_key = AES.keyExpansion(prev_key, i)
       state = AES.AddRoundKey(state, new_key)
       prev_key = new_key
+      
+      if trace:
+         round_states.append([row.copy() for row in state])  # store state after each round
 
     #10th (final) round doesn't mix columns
     for j in range(4):
-        state[j] = AES.SubWord(state[j])
+       state[j] = AES.SubWord(state[j])
 
     state = AES.ShiftRows(state)
 
     new_key = AES.keyExpansion(prev_key, 10)
     state = AES.AddRoundKey(state, new_key)
+
+    if trace:
+        round_states.append([row.copy() for row in state])  # store final state
+        return state, round_states
+
     return state
   
 
@@ -241,15 +251,15 @@ class AES:
     #matrix mult while using XOR as the addition operator
     pass
   
-def ECB(plaintext_bits):
+def ECB(plaintext):
     # split the plaintext into 128-bit blocks, padded if needed
     # each block is encrypted independently using AES
     # ciphertext blocks are concatenated in the same order as the plaintext
     ciphertext = []
     block_size = 128  # AES block size
     i = 0
-    while i < len(plaintext_bits):
-        block = plaintext_bits[i:i + block_size]
+    while i < len(plaintext):
+        block = plaintext[i:i + block_size]
         # pad block with 0s if it's less than 128 bits 
         if len(block) < block_size:
             block = block.ljust(block_size, '0')
@@ -270,3 +280,13 @@ def ECB(plaintext_bits):
 
 enc = AES.encryptBlock(plaintext)
 print("Ciphertext: " + str(enc))
+
+# encrypt with tracing
+ciphertext, round_states = AES.encryptBlock(plaintext, trace=True)
+
+# print state after each round
+for r, s in enumerate(round_states):
+    print(f"State after round {r}:")
+    for row in s:
+        print(row)
+    print()
