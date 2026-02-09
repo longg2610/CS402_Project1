@@ -1,6 +1,6 @@
 import random
 
-seed = 123456789
+seed = 123456789  # min(D# in your group)
 random.seed(seed)
 
 key = random.getrandbits(128)
@@ -12,8 +12,7 @@ def text_to_bits(text: str, encoding="utf-8") -> str:
 DNums = "D00000001D00000002D00000003"
 
 plaintext = text_to_bits(DNums)[:128]
-
-print(plaintext)
+print("Plaintext: " + str(plaintext))
 
 class AES:
   
@@ -36,7 +35,154 @@ class AES:
 [0x70, 0x3E, 0xB5, 0x66, 0x48, 0x03, 0xF6, 0x0E, 0x61, 0x35, 0x57, 0xB9, 0x86, 0xC1, 0x1D, 0x9E],
 [0xE1, 0xF8, 0x98, 0x11, 0x69, 0xD9, 0x8E, 0x94, 0x9B, 0x1E, 0x87, 0xE9, 0xCE, 0x55, 0x28, 0xDF],
 [0x8C, 0xA1, 0x89, 0x0D, 0xBF, 0xE6, 0x42, 0x68, 0x41, 0x99, 0x2D, 0x0F, 0xB0, 0x54, 0xBB, 0x16]]
-  InvSBox = [[0x52, 0x09, 0x6A, 0xD5, 0x30, 0x36, 0xA5, 0x38, 0xBF, 0x40, 0xA3, 0x9E, 0x81, 0xF3, 0xD7, 0xFB],
+  
+
+  # ============================================================ KEY EXPANSION =============================================
+
+  def keyInit():
+    key_byte_array = list(key.to_bytes(16))
+
+    key_matrix = [[0 for __ in range (0, 4)] for _ in range(0, 4)]
+    for i in range(16):
+      key_matrix[i % 4][i // 4] = key_byte_array[i]
+    return key_matrix
+  
+  def RotWord(word):
+    first = word.pop(0)
+    word.append(first)
+    return word
+    
+  Rcon = [0x00, 0x01, 0x02, 0x04, 0x08, 0x10, 0x20, 0x40, 0x80, 0x1B, 0x36]   # key expansion constants for each round
+  def XOR(word1, word2):
+    result = []
+    for i in range(4):
+      result.append(word1[i] ^ word2[i])
+    return result
+  
+  def SubWord(word):
+    new_word = []
+    for i in range (len(word)):
+      new_word.append(AES.SubBytes(word[i]))
+    return new_word
+
+  def keyExpansion(key_matrix, i):
+    lastWord = key_matrix[3]
+    transformedWord = AES.XOR(AES.SubWord(AES.RotWord(lastWord)), AES.Rcon[i].to_bytes(16))
+
+    newKey = []
+    newKey.append(AES.XOR(transformedWord, key_matrix[0]))
+    newKey.append(AES.XOR(newKey[0], key_matrix[1]))
+    newKey.append(AES.XOR(newKey[1], key_matrix[2]))
+    newKey.append(AES.XOR(newKey[2], key_matrix[3]))
+
+    return newKey
+  
+    ### TRANSFORMATIONS ###
+  def SubBytes(input_byte):
+    #split input into the 4 leftmost bits and the 4 rightmost bits
+    #the leftmost bits are the row index and the rightmost bits are the column index
+    #use SBox and return whatever's at that index
+
+    row = (input_byte >> 4) & 0x0F   # top 4 bits
+    col = input_byte & 0x0F          # bottom 4 bits
+
+    return AES.SBox[row][col]
+
+  def ShiftRows(input_matrix):
+    #input is a 4x4 matrix of bytes
+    #circular left shift by i where i is the row index
+    #return new matrix
+    for i in range(1, 4):
+      for j in range(i):
+        elem = input_matrix[i].pop(0)
+        input_matrix[i].append(elem)
+    return input_matrix
+  
+  A = [[2,3,1,1], [1,2,3,1], [1,1,2,3], [3,1,1,2]]
+
+  def MUL(const, input):
+    if const == 1:
+      return const * input
+    elif const == 2:
+        shift_left_one = input << 1
+        if input & 0b10000000:      # if highest bit was 1
+            shift_left_one ^= 0x1B
+        return shift_left_one & 0xFF
+
+    elif const == 3:
+        shift_left_one = input << 1
+        if input & 0b10000000:      # if highest bit was 1
+            shift_left_one ^= 0x1B
+        return (shift_left_one ^ input) & 0xFF
+
+
+  def MixColumns(input_matrix):
+    #4x4 matrix mult between const matrix A and input_matrix
+    #A is defined on page 180 (6.3), need to figure out how to
+    #matrix mult while using XOR as the addition operator
+
+    result = [[0 for __ in range (0, 4)] for _ in range(0, 4)]
+    for i in range(4):
+      for j in range(4):
+        for k in range(4):
+          result[i][j] = result[i][j] ^ AES.MUL(AES.A[i][k], input_matrix[k][j])
+
+    return result
+    
+
+  def AddRoundKey(input_matrix, round_key):
+    #XOR cell i,j of input matrix with cell i,j of the round key
+    output = [[0 for __ in range (0, 4)] for _ in range(0, 4)]
+    for i in range(0, 4):
+      for j in range(0, 4):
+        output[i][j] = input_matrix[i][j] ^ round_key[i][j]
+    return output
+  
+
+  def encryptBlock(plaintext):
+    #state = copy of plaintext in byte matrix
+    #calculate round keys with keyExpansion()
+    #addRoundKey
+    #for i from 0 to 9:
+    #   subBytes, shiftRows, mixColumns, addRoundKey
+    #subBytes, shiftRows, addRoundKey
+    #return state
+
+    state = [[0 for __ in range (0, 4)] for _ in range(0, 4)]
+
+    # initialize first state to be the plaintext input
+    for i in range(16):
+      state[i % 4][i // 4] = int(plaintext[8*i : 8*i+8], 2)
+    
+    # XOR initial state with initial key (K_0)
+    K_0 = AES.keyInit()
+    AES.AddRoundKey(state, K_0)
+
+    prev_key = K_0
+
+    #N = 10 (number of rounds) for 16-byte key
+    for i in range(0, 9):
+      for j in range(4):
+        state[j] = AES.SubWord(state[j])
+      state = AES.ShiftRows(state)
+      
+      state = AES.MixColumns(state)
+
+      new_key = AES.keyExpansion(prev_key, i)
+      state = AES.AddRoundKey(state, new_key)
+      prev_key = new_key
+
+    #10th (final) round doesn't mix columns
+    for j in range(4):
+        state[j] = AES.SubWord(state[j])
+    state = AES.ShiftRows(state)
+
+    new_key = AES.keyExpansion(prev_key, i)
+    state = AES.AddRoundKey(state, new_key)
+    return state
+  
+
+    InvSBox = [[0x52, 0x09, 0x6A, 0xD5, 0x30, 0x36, 0xA5, 0x38, 0xBF, 0x40, 0xA3, 0x9E, 0x81, 0xF3, 0xD7, 0xFB],
 [0x7C, 0xE3, 0x39, 0x82, 0x9B, 0x2F, 0xFF, 0x87, 0x34, 0x8E, 0x43, 0x44, 0xC4, 0xDE, 0xE9, 0xCB],
 [0x54, 0x7B, 0x94, 0x32, 0xA6, 0xC2, 0x23, 0x3D, 0xEE, 0x4C, 0x95, 0x0B, 0x42, 0xFA, 0xC3, 0x4E],
 [0x08, 0x2E, 0xA1, 0x66, 0x28, 0xD9, 0x24, 0xB2, 0x76, 0x5B, 0xA2, 0x49, 0x6D, 0x8B, 0xD1, 0x25],
@@ -52,44 +198,6 @@ class AES:
 [0x60, 0x51, 0x7F, 0xA9, 0x19, 0xB5, 0x4A, 0x0D, 0x2D, 0xE5, 0x7A, 0x9F, 0x93, 0xC9, 0x9C, 0xEF],
 [0xA0, 0xE0, 0x3B, 0x4D, 0xAE, 0x2A, 0xF5, 0xB0, 0xC8, 0xEB, 0xBB, 0x3C, 0x83, 0x53, 0x99, 0x61],
 [0x17, 0x2B, 0x04, 0x7E, 0xBA, 0x77, 0xD6, 0x26, 0xE1, 0x69, 0x14, 0x63, 0x55, 0x21, 0x0C, 0x7D]]
-  key = 0
-  
-  def keyExpansion():
-    key_byte_array = list(key.to_bytes(16))
-    # turns into a 4x4 byte matrix, idk if this is what we need though
-    # key_matrix = [[0 for __ in range (0, 4)] for _ in range(0, 4)]
-    # for i in range(16):
-    #   key_matrix[i%4][i//4] = key_byte_array[i]
-    pass
-    #return key_matrix
-  
-  def encryptBlock(plaintext):
-    #state = copy of plaintext in byte matrix
-    #calculate round keys with keyExpansion()
-    #addRoundKey
-    #for i from 0 to 9:
-    #   subBytes, shiftRows, mixColumns, addRoundKey
-    #subBytes, shiftRows, addRoundKey
-    #return state
-    state = [[0 for __ in range (0, 4)] for _ in range(0, 4)]
-    for i in range(16):
-      print(plaintext[8*i : 8*i+8])
-      state[i%4][i//4] = int(plaintext[8*i : 8*i+8], 2)
-    ##calculate key expansion
-    #AES.AddRoundKey
-    
-    #N = 10 (number of rounds) for 16-byte key
-    for i in range(0, 9):
-      #subbyte
-      #shiftrows
-      #mixcols
-      #addroundkey
-      pass
-    #10th (final) round doesn't mix columns
-    #subbytes
-    #shiftrows
-    #addroundkey
-    pass
   
   def decryptBlock(ciphertext):
     #state = copy of ciphertext
@@ -103,16 +211,6 @@ class AES:
     #return state
     pass
   
-  ### TRANSFORMATIONS ###
-  def SubBytes(input_byte):
-    #split input into the 4 leftmost bits and the 4 rightmost bits
-    #the leftmost bits are the row index and the rightmost bits are the column index
-    #use SBox and return whatever's at that index
-    bits = bin(input_byte)[2:]
-    row = int(bits[0:3], 2)
-    col = int(bits[4:7], 2)
-    return AES.SBox[row][col]
-    
   def InvSubBytes(input_byte):
     #split input into the 4 leftmost bits and the 4 rightmost bits
     #the leftmost bits are the row index and the rightmost bits are the column index
@@ -121,16 +219,6 @@ class AES:
     row = int(bits[0:3], 2)
     col = int(bits[4:7], 2)
     return AES.InvSBox[row][col]
-  
-  def ShiftRows(input_matrix):
-    #input is a 4x4 matrix of bytes
-    #circular left shift by i where i is the row index
-    #return new matrix
-    for i in range(1, 4):
-      for j in range(i):
-        elem = input_matrix[i].pop(0)
-        input_matrix.append(elem)
-    return input_matrix
   
   def InvShiftRows(input_matrix):
     #input is a 4x4 matrix of bytes
@@ -142,22 +230,21 @@ class AES:
         input_matrix[i].insert(0, elem)
     return input_matrix
   
-  def MixColumns(input_matrix):
-    #4x4 matrix mult between const matrix A and input_matrix
-    #A is defined on page 180 (6.3), need to figure out how to
-    #matrix mult while using XOR as the addition operator
-    pass
-  
   def InvMixColumns():
     #4x4 matrix mult between const matrix B and input_matrix
     #B is defined on page 181 (6.5), need to figure out how to
     #matrix mult while using XOR as the addition operator
     pass
   
-  def AddRoundKey(input_matrix, round_key):
-    #XOR cell i,j of input matrix with cell i,j of the round key
-    output = [[0 for __ in range (0, 4)] for _ in range(0, 4)]
-    for i in range(0, 4):
-      for j in range(0, 4):
-        output[i][j] = input_matrix[i][j]^round_key[i][j]
-    return output
+
+# test key expansion
+initialKey = AES.keyInit()
+round1Key = AES.keyExpansion(initialKey, 1)
+round2Key = AES.keyExpansion(initialKey, 2)
+print("K0: " + str(initialKey))
+print("K1: " + str(round1Key))
+print("K2: " + str(round2Key))
+
+
+enc = AES.encryptBlock(plaintext)
+print("Ciphertext: " + str(enc))
