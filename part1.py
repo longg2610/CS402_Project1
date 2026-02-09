@@ -113,7 +113,9 @@ class AES:
     return input_matrix
   
   A = [[2,3,1,1], [1,2,3,1], [1,1,2,3], [3,1,1,2]]    # const array used in MixColumns
-  def MUL(const, input):      # multiplications for MixColumns
+  B = [[0x0E, 0x0B, 0x0D, 0x09], [0x09, 0x0E, 0x0B, 0x0D], [0x0D, 0x09, 0x0E, 0x0B], [0x0B, 0x0D, 0x09, 0x0E]]
+  
+  def MUL(const, input):
     if const == 1:
       return const * input
     elif const == 2:
@@ -210,7 +212,7 @@ class AES:
     return state
   
 
-    InvSBox = [[0x52, 0x09, 0x6A, 0xD5, 0x30, 0x36, 0xA5, 0x38, 0xBF, 0x40, 0xA3, 0x9E, 0x81, 0xF3, 0xD7, 0xFB],
+  InvSBox = [[0x52, 0x09, 0x6A, 0xD5, 0x30, 0x36, 0xA5, 0x38, 0xBF, 0x40, 0xA3, 0x9E, 0x81, 0xF3, 0xD7, 0xFB],
 [0x7C, 0xE3, 0x39, 0x82, 0x9B, 0x2F, 0xFF, 0x87, 0x34, 0x8E, 0x43, 0x44, 0xC4, 0xDE, 0xE9, 0xCB],
 [0x54, 0x7B, 0x94, 0x32, 0xA6, 0xC2, 0x23, 0x3D, 0xEE, 0x4C, 0x95, 0x0B, 0x42, 0xFA, 0xC3, 0x4E],
 [0x08, 0x2E, 0xA1, 0x66, 0x28, 0xD9, 0x24, 0xB2, 0x76, 0x5B, 0xA2, 0x49, 0x6D, 0x8B, 0xD1, 0x25],
@@ -227,7 +229,7 @@ class AES:
 [0xA0, 0xE0, 0x3B, 0x4D, 0xAE, 0x2A, 0xF5, 0xB0, 0xC8, 0xEB, 0xBB, 0x3C, 0x83, 0x53, 0x99, 0x61],
 [0x17, 0x2B, 0x04, 0x7E, 0xBA, 0x77, 0xD6, 0x26, 0xE1, 0x69, 0x14, 0x63, 0x55, 0x21, 0x0C, 0x7D]]
   
-  def decryptBlock(ciphertext):
+  def decryptBlock(ciphertext, trace=False):
     #state = copy of ciphertext
     # --- everything is the same except use inv functions instead
     # --- round keys decrementing instead of incrementing
@@ -237,16 +239,71 @@ class AES:
     #   subBytes, shiftRows, mixColumns, addRoundKey
     #subBytes, shiftRows, addRoundKey
     #return state
-    pass
+    state = [[0 for __ in range (0, 4)] for _ in range(0, 4)]
+
+    # initialize first state to be the ciphertext input
+    for i in range(16):
+      state[i % 4][i // 4] = int(ciphertext[8*i : 8*i+8], 2)
+
+    # print("Plaintext: " + str(state))
+
+    # initialize first key
+    keys = [AES.keyInit()]
+    for i in range(1,11):
+      keys.append(AES.keyExpansion(keys[i-1], i))
+    
+    #[0, 10]
+
+    # XOR initial state with initial key (K_0)
+    state = AES.AddRoundKey(state, keys[10])
+
+    round_states = [[row.copy() for row in state] ]  # store initial state
+
+    #N = 10 (number of rounds) for 16-byte key
+    for i in range(9, 0, -1):
+      
+      
+      # ShiftRows
+      state = AES.InvShiftRows(state)
+      
+      # SubBytes
+      state = AES.InvSubBytes(state)
+      
+      # AddRoundKey
+      state = AES.AddRoundKey(state, keys[i])
+      
+      # MixColumns
+      state = AES.InvMixColumns(state)
+      
+      if trace:
+         round_states.append([row.copy() for row in state])  # store state after each round
+
+    #10th (final) round doesn't mix columns
+    state = AES.InvShiftRows(state)
+    
+    state = AES.InvSubBytes(state)
+
+    state = AES.AddRoundKey(state, keys[0])
+
+    if trace:
+        round_states.append([row.copy() for row in state])  # store final state
+        return state, round_states
+
+    return state
   
-  def InvSubBytes(input_byte):
+  def InvSubBytes(input_matrix):
     #split input into the 4 leftmost bits and the 4 rightmost bits
     #the leftmost bits are the row index and the rightmost bits are the column index
     #use InvSBox and return whatever's at that index
-    bits = bin(input_byte)[2:]
-    row = int(bits[0:3], 2)
-    col = int(bits[4:7], 2)
-    return AES.InvSBox[row][col]
+    result = [[0 for __ in range (0, 4)] for _ in range(0, 4)]
+    for i in range(4):
+      for j in range(4):
+        byte = input_matrix[i][j]
+        bits = bin(byte)[2:].zfill(8)
+        row = int(bits[0:3], 2)
+        col = int(bits[4:7], 2)
+        result[i][j] = AES.InvSBox[row][col]
+    return result
   
   def InvShiftRows(input_matrix):
     #input is a 4x4 matrix of bytes
@@ -258,11 +315,29 @@ class AES:
         input_matrix[i].insert(0, elem)
     return input_matrix
   
-  def InvMixColumns():
+  def InvMixColumns(input_matrix):
     #4x4 matrix mult between const matrix B and input_matrix
     #B is defined on page 181 (6.5), need to figure out how to
     #matrix mult while using XOR as the addition operator
-    pass
+    result = [[0 for __ in range (0, 4)] for _ in range(0, 4)]
+    for i in range(4):
+      for j in range(4):
+        for k in range(4):
+          result[i][j] = result[i][j] ^ AES.MUL(AES.B[i][k], input_matrix[k][j])
+    return result
+
+# test key expansion
+# initialKey = AES.keyInit()
+# round1Key = AES.keyExpansion(initialKey, 1)
+# round2Key = AES.keyExpansion(round1Key, 2)
+# print("K0: " + arr_to_bin(initialKey))
+# print("K1: " + str(round1Key))
+# print("K2: " + str(round2Key))
+
+enc = AES.encryptBlock(plaintext)
+enc_str = arr_to_bin(enc)
+print("Ciphertext: " + enc_str)
+
 
 def main():
   # driver code: this part just return the ciphertext in bits
