@@ -9,7 +9,7 @@ def text_to_bits(text: str, encoding="utf-8") -> str:
          data = text.encode(encoding)
          return ''.join(f'{byte:08b}' for byte in data)
 
-DNums = "D01962481D01962564D04678912"
+DNums = "D01962481D01962564D01966755"
 
 plaintext = text_to_bits(DNums)[:128]
 print("Plaintext: " + str(plaintext))
