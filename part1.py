@@ -9,7 +9,7 @@ def text_to_bits(text: str, encoding="utf-8") -> str:
          data = text.encode(encoding)
          return ''.join(f'{byte:08b}' for byte in data)
 
-DNums = "D00000001D00000002D00000003"
+DNums = "D01962481D18433789D04678912"
 
 plaintext = text_to_bits(DNums)[:128]
 print("Plaintext: " + str(plaintext))
@@ -49,30 +49,29 @@ class AES:
   
   def RotWord(word):
     first = word.pop(0)
-    word.append(first)
-    return word
+    return word + [first]
     
+  def SubWord(word):
+    new_word = []
+    for i in range (len(word)):
+      new_word.append(AES.SubBytes(word[i]))
+    return new_word
+  
   Rcon = [0x00, 0x01, 0x02, 0x04, 0x08, 0x10, 0x20, 0x40, 0x80, 0x1B, 0x36]   # key expansion constants for each round
   def XOR(word1, word2):
     result = []
     for i in range(4):
       result.append(word1[i] ^ word2[i])
     return result
-  
-  def SubWord(word):
-    new_word = []
-    for i in range (len(word)):
-      new_word.append(AES.SubBytes(word[i]))
-    return new_word
 
   def keyExpansion(key_matrix, i):
-    lastWord = key_matrix[3].copy()
+    lastWord = key_matrix[3].copy()   # last 4 bytes of the previous round key
     
-    Rcon_arr = [AES.Rcon[i], 0x00, 0x00, 0x00]
-    transformedWord = AES.XOR(AES.SubWord(AES.RotWord(lastWord)), Rcon_arr)
+    # rotate, then S-Box on every bytes, then XOR with the round's constant
+    lastWord = AES.XOR(AES.SubWord(AES.RotWord(lastWord)), [AES.Rcon[i], 0x00, 0x00, 0x00])
 
     newKey = []
-    newKey.append(AES.XOR(transformedWord, key_matrix[0]))
+    newKey.append(AES.XOR(lastWord, key_matrix[0]))
     newKey.append(AES.XOR(newKey[0], key_matrix[1]))
     newKey.append(AES.XOR(newKey[1], key_matrix[2]))
     newKey.append(AES.XOR(newKey[2], key_matrix[3]))
@@ -100,8 +99,7 @@ class AES:
         input_matrix[i].append(elem)
     return input_matrix
   
-  A = [[2,3,1,1], [1,2,3,1], [1,1,2,3], [3,1,1,2]]
-
+  A = [[2,3,1,1], [1,2,3,1], [1,1,2,3], [3,1,1,2]]    # const array used in MixColumns
   def MUL(const, input):
     if const == 1:
       return const * input
@@ -110,13 +108,11 @@ class AES:
         if input & 0b10000000:      # if highest bit was 1
             shift_left_one ^= 0x1B
         return shift_left_one & 0xFF
-
     elif const == 3:
         shift_left_one = input << 1
         if input & 0b10000000:      # if highest bit was 1
             shift_left_one ^= 0x1B
         return (shift_left_one ^ input) & 0xFF
-
 
   def MixColumns(input_matrix):
     #4x4 matrix mult between const matrix A and input_matrix
@@ -128,10 +124,8 @@ class AES:
       for j in range(4):
         for k in range(4):
           result[i][j] = result[i][j] ^ AES.MUL(AES.A[i][k], input_matrix[k][j])
-
     return result
     
-
   def AddRoundKey(input_matrix, round_key):
     #XOR cell i,j of input matrix with cell i,j of the round key
     output = [[0 for __ in range (0, 4)] for _ in range(0, 4)]
@@ -155,21 +149,29 @@ class AES:
     # initialize first state to be the plaintext input
     for i in range(16):
       state[i % 4][i // 4] = int(plaintext[8*i : 8*i+8], 2)
-    
-    # XOR initial state with initial key (K_0)
+
+    print("Plaintext: " + str(state))
+
+    # initialize first key
     K_0 = AES.keyInit()
+
+    # XOR initial state with initial key (K_0)
     state = AES.AddRoundKey(state, K_0)
 
     prev_key = K_0
-
     #N = 10 (number of rounds) for 16-byte key
     for i in range(1, 10):
+      # do SubBytes on the whole 128-bit blovk
       for j in range(4):
         state[j] = AES.SubWord(state[j])
+
+      # ShiftRows
       state = AES.ShiftRows(state)
       
+      # MixColumns
       state = AES.MixColumns(state)
 
+      # AddRoundKey
       new_key = AES.keyExpansion(prev_key, i)
       state = AES.AddRoundKey(state, new_key)
       prev_key = new_key
@@ -177,6 +179,7 @@ class AES:
     #10th (final) round doesn't mix columns
     for j in range(4):
         state[j] = AES.SubWord(state[j])
+
     state = AES.ShiftRows(state)
 
     new_key = AES.keyExpansion(prev_key, 10)
@@ -240,12 +243,12 @@ class AES:
   
 
 # test key expansion
-initialKey = AES.keyInit()
-round1Key = AES.keyExpansion(initialKey, 1)
-round2Key = AES.keyExpansion(round1Key, 2)
-print("K0: " + str(initialKey))
-print("K1: " + str(round1Key))
-print("K2: " + str(round2Key))
+# initialKey = AES.keyInit()
+# round1Key = AES.keyExpansion(initialKey, 1)
+# round2Key = AES.keyExpansion(round1Key, 2)
+# print("K0: " + str(initialKey))
+# print("K1: " + str(round1Key))
+# print("K2: " + str(round2Key))
 
 
 enc = AES.encryptBlock(plaintext)
