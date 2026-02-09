@@ -1,18 +1,35 @@
 import random
 
 seed = 1962481  # min(D# in your group)
+# seed = 1950775
 random.seed(seed)
 
 key = random.getrandbits(128)
+# key = int("000102030405060708090a0b0c0d0e0f", 16)
+# key = int("2b7e151628aed2a6abf7158809cf4f3c", 16)
 
 def text_to_bits(text: str, encoding="utf-8") -> str:
          data = text.encode(encoding)
          return ''.join(f'{byte:08b}' for byte in data)
 
+# convert array representation to a binary string
+def arr_to_bin(arr):
+  bin_str = ""
+  for col in range(4):
+    for row in range(4):
+        bin_str += format(arr[row][col], '08b')
+  assert len(bin_str) == 128
+  return bin_str
+
 DNums = "D01962481D01962564D01966755"
+# DNums = "D01950775D01962465D01968181"
 
 plaintext = text_to_bits(DNums)[:128]
 print("Plaintext: " + str(plaintext))
+
+# plaintext = "00000000000100010010001000110011010001000101010101100110011101111000100010011001101010101011101111001100110111011110111011111111"
+# plaintext = ''.join(f'{int(h, 16):04b}' for h in "6bc1bee22e409f96e93d7e117393172a")
+
 
 class AES:
   
@@ -65,16 +82,21 @@ class AES:
     return result
 
   def keyExpansion(key_matrix, i):
-    lastWord = key_matrix[3].copy()   # last 4 bytes of the previous round key
+    lastWord = [key_matrix[r][3] for r in range(4)]   # last 4 bytes of the previous round key
     
     # rotate, then S-Box on every bytes, then XOR with the round's constant
     lastWord = AES.XOR(AES.SubWord(AES.RotWord(lastWord)), [AES.Rcon[i], 0x00, 0x00, 0x00])
 
-    newKey = []
-    newKey.append(AES.XOR(lastWord, key_matrix[0]))
-    newKey.append(AES.XOR(newKey[0], key_matrix[1]))
-    newKey.append(AES.XOR(newKey[1], key_matrix[2]))
-    newKey.append(AES.XOR(newKey[2], key_matrix[3]))
+    newKey = [[0]*4 for _ in range(4)]
+
+    for r in range(4):
+        newKey[r][0] = lastWord[r] ^ key_matrix[r][0]
+    for r in range(4):
+        newKey[r][1] = newKey[r][0] ^ key_matrix[r][1]
+    for r in range(4):
+        newKey[r][2] = newKey[r][1] ^ key_matrix[r][2]
+    for r in range(4):
+        newKey[r][3] = newKey[r][2] ^ key_matrix[r][3]
 
     return newKey
   
@@ -150,7 +172,7 @@ class AES:
     for i in range(16):
       state[i % 4][i // 4] = int(plaintext[8*i : 8*i+8], 2)
 
-    print("Plaintext: " + str(state))
+    # print("Plaintext: " + str(state))
 
     # initialize first key
     K_0 = AES.keyInit()
@@ -251,82 +273,23 @@ class AES:
     #matrix mult while using XOR as the addition operator
     pass
   
-def ECB(plaintext):
-    # split the plaintext into 128-bit blocks, padded if needed
-    # each block is encrypted independently using AES
-    # ciphertext blocks are concatenated in the same order as the plaintext
-    ciphertext = []
-    block_size = 128  # AES block size
-    i = 0
-    while i < len(plaintext):
-        block = plaintext[i:i + block_size]
-        # pad block with 0s if it's less than 128 bits 
-        if len(block) < block_size:
-            block = block.ljust(block_size, '0')
-        encrypted_block = AES.encryptBlock(block)
-        ciphertext.append(encrypted_block)
-        i += block_size
-    return ciphertext
-
-
-# Generate all IVs needed
-import math
-def genIV(plaintext_len):
-  IV_count = math.ceil(plaintext_len / 128)
-  IV_list = []
-
-  IV = random.getrandbits(128)
-  for _ in range(IV_count):
-    IV += 1
-    IV_list.append(text_to_bits(str(IV)))
-  return IV_list
-
-def CTR(plaintext_bits):
-    IV_list = genIV(len(plaintext_bits))
-    ciphertext_bits = ""
-    block_size = 128  # AES block size
-    i = 0
-    counter = 0
-    while i < len(plaintext_bits):
-      block = plaintext_bits[i:i + block_size]
-      IV_str = ""
-      encrypted_IV = AES.encryptBlock(IV_list[counter])
-
-      # convert encrypted IV from array representation to bit string so we can do XOR
-      for j in range(4):
-        for k in range(4):
-           IV_str += format(encrypted_IV[j][k], '08b')    # make sure 8 bits are appended each time
-      assert len(IV_str) == block_size
-
-      IV_str = IV_str[0:len(block)]   # chop off last IV bits if block is not 128
-
-      XOR_result = int(IV_str, 2) ^ int(block, 2)   # convert to int to do XOR
-      ciphertext_bits += format(XOR_result, '0128b')[-len(block):]   # convert back to string, cut out only the necessary bits
-
-      i += block_size
-      counter += 1
-
-    assert len(plaintext_bits) == len(ciphertext_bits)
-    return ciphertext_bits
-
-
-# Test CTR
-cool_msg = "All Denison students should take CS402!"
-print(CTR(text_to_bits(cool_msg)))
-
 
 
 # test key expansion
 # initialKey = AES.keyInit()
 # round1Key = AES.keyExpansion(initialKey, 1)
 # round2Key = AES.keyExpansion(round1Key, 2)
-# print("K0: " + str(initialKey))
+# print("K0: " + arr_to_bin(initialKey))
 # print("K1: " + str(round1Key))
 # print("K2: " + str(round2Key))
 
-
 enc = AES.encryptBlock(plaintext)
-print("Ciphertext: " + str(enc))
+enc_str = arr_to_bin(enc)
+print("Ciphertext: " + enc_str)
+
+# ciphertext = "01101001110001001110000011011000011010100111101100000100001100001101100011001101101101111000000001110000101101001100010101011010"
+# ciphertext = ''.join(f'{int(h, 16):04b}' for h in "3ad77bb40d7a3660a89ecaf32466ef97")
+# assert ciphertext == enc_str
 
 # encrypt with tracing
 ciphertext, round_states = AES.encryptBlock(plaintext, trace=True)
@@ -334,6 +297,7 @@ ciphertext, round_states = AES.encryptBlock(plaintext, trace=True)
 # print state after each round
 for r, s in enumerate(round_states):
     print(f"State after round {r}:")
-    for row in s:
-        print(row)
+    print(arr_to_bin(s))
+    # for row in s:
+    #     print(row)
     print()
